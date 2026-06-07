@@ -1,6 +1,6 @@
 // ========== CONFIG ==========
 const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
-const DEEPSEEK_API_KEY = ['sk-5a375', '616ec0848', 'da8250a57f', '6dd025c5'].join('');
+const DEEPSEEK_API_KEY = ['sk-d2ada2221', '6744b9c9af4f', '9e853e943a7'].join('');
 
 // ========== GLOBAL STATE ==========
 // (sampleResumes, sampleJDs, gapChart declared in sample-data.js)
@@ -333,6 +333,11 @@ async function parseDOCX(file) {
 // ========== DEEPSEEK API ==========
 
 async function callDeepSeekAPI(systemPrompt, userPrompt, maxTokens = 4096) {
+  // 使用次数检查 + 密码验证
+  if (typeof window._offerCanUse === 'function' && !window._offerCanUse()) {
+    throw new Error('无法调用 AI 分析：已达使用上限或未通过口令验证。');
+  }
+
   const resp = await fetch(DEEPSEEK_BASE_URL + '/chat/completions', {
     method: 'POST',
     headers: {
@@ -357,6 +362,10 @@ async function callDeepSeekAPI(systemPrompt, userPrompt, maxTokens = 4096) {
   }
 
   const data = await resp.json();
+  // 成功调用后记录使用次数
+  if (typeof window._offerRecordUsage === 'function') {
+    window._offerRecordUsage();
+  }
   const raw = data.choices?.[0]?.message?.content || '{}';
   try {
     return JSON.parse(raw);
@@ -1310,6 +1319,77 @@ function showToast(msg, duration = 3000) {
     });
   });
 })();
+
+// ========== PASSWORD & USAGE LIMIT ==========
+(function initPwd() {
+  const CORRECT_PWD = 'offer2026';
+  const MAX_USAGE = 100;
+
+  function isVerified() {
+    return localStorage.getItem('offer_pwd_ok') === '1';
+  }
+
+  function getUsage() {
+    return parseInt(localStorage.getItem('offer_usage') || '0', 10);
+  }
+
+  function incrementUsage() {
+    const u = getUsage() + 1;
+    localStorage.setItem('offer_usage', String(u));
+    return u;
+  }
+
+  // Expose for use in API call wrappers
+  window._offerCanUse = function() {
+    if (!isVerified()) {
+      showToast('请先输入访问口令');
+      return false;
+    }
+    if (getUsage() >= MAX_USAGE) {
+      showToast('调用次数已达上限（' + MAX_USAGE + '次），请联系管理员。');
+      return false;
+    }
+    return true;
+  };
+
+  window._offerRecordUsage = function() {
+    const u = incrementUsage();
+    console.log('[Offer捕手] 已使用 ' + u + '/' + MAX_USAGE + ' 次');
+  };
+
+  // On load: if already verified, skip modal
+  if (isVerified()) {
+    var modal = document.getElementById('pwdModal');
+    var home = document.getElementById('secHome');
+    if (modal) modal.classList.remove('active');
+    if (home) home.classList.add('active');
+  }
+})();
+
+function checkPwd() {
+  var input = document.getElementById('pwdInput');
+  var hint = document.getElementById('pwdHint');
+  var val = input.value.trim();
+  if (!val) {
+    hint.textContent = '请输入口令';
+    input.focus();
+    return;
+  }
+  if (val !== 'offer2026') {
+    hint.textContent = '口令错误，请重试';
+    input.value = '';
+    input.focus();
+    return;
+  }
+  // Success
+  localStorage.setItem('offer_pwd_ok', '1');
+  var modal = document.getElementById('pwdModal');
+  var home = document.getElementById('secHome');
+  if (modal) modal.classList.remove('active');
+  if (home) home.classList.add('active');
+  hint.textContent = '';
+  input.value = '';
+}
 
 // ========== INIT ==========
 // Ensure pdfjsLib workerSrc is set after all scripts load

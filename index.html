@@ -15,6 +15,19 @@
 </head>
 <body>
 
+  <!-- ===== PASSWORD MODAL ===== -->
+  <div class="modal-overlay active" id="pwdModal">
+    <div class="modal-card pwd-card">
+      <div class="pwd-icon">🔒</div>
+      <h2 class="pwd-title">Offer 捕手</h2>
+      <p class="pwd-desc">请输入访问口令以使用 AI 分析功能</p>
+      <input type="password" class="pwd-input" id="pwdInput" placeholder="请输入口令"
+             onkeydown="if(event.key==='Enter')checkPwd()" autofocus />
+      <button class="btn btn-primary pwd-btn" id="pwdBtn" onclick="checkPwd()">进入 Demo</button>
+      <p class="pwd-hint" id="pwdHint"></p>
+    </div>
+  </div>
+
   <!-- ===== NAV ===== -->
   <nav class="nav">
     <div class="nav-inner">
@@ -27,7 +40,7 @@
   </nav>
 
   <!-- ===== MODE SELECT (HOME) ===== -->
-  <section class="section active" id="secHome">
+  <section class="section" id="secHome">
     <div class="container">
       <div class="hero-card">
         <h1 class="hero-title">Offer 捕手</h1>
