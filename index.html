@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Offer 捕手 — 学生求职 AI 匹配智能体</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- pdf.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- mammoth.js -->
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===== NAV ===== -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <span class="nav-logo">🎯 Offer 捕手</span>
+      <span class="nav-badge">● AI-HR 实战营 Demo · 三模式完整版</span>
+      <button class="nav-home-btn" id="navHomeBtn" onclick="goHome()" style="display:none;">
+        ← 重新选择模式
+      </button>
+    </div>
+  </nav>
+
+  <!-- ===== MODE SELECT (HOME) ===== -->
+  <section class="section active" id="secHome">
+    <div class="container">
+      <div class="hero-card">
+        <h1 class="hero-title">Offer 捕手</h1>
+        <p class="hero-sub">学生求职匹配智能体 — 精准匹配简历与目标岗位</p>
+        <div class="hero-badge">AI-HR 实战营 Demo · 三模式完整版</div>
+      </div>
+
+      <div class="mode-section">
+        <h2 class="mode-heading">选择你的使用场景</h2>
+        <p class="mode-sub">根据你的当前状态，选择最适合的匹配模式</p>
+
+        <div class="mode-grid">
+          <!-- Mode A -->
+          <div class="mode-card" onclick="selectMode('A')">
+            <div class="mode-radio"></div>
+            <div class="mode-icon">📄</div>
+            <h3 class="mode-title">我有简历，找岗位</h3>
+            <p class="mode-desc">已准备好简历，希望找到最匹配的岗位推荐</p>
+          </div>
+
+          <!-- Mode B -->
+          <div class="mode-card" onclick="selectMode('B')">
+            <div class="mode-radio"></div>
+            <div class="mode-icon">🎯</div>
+            <h3 class="mode-title">我有目标岗，改简历</h3>
+            <p class="mode-desc">已有心仪岗位 JD，想知道简历如何优化</p>
+          </div>
+
+          <!-- Mode C -->
+          <div class="mode-card" onclick="selectMode('C')">
+            <div class="mode-radio"></div>
+            <div class="mode-icon">⚡</div>
+            <h3 class="mode-title">简历+岗位，做分析</h3>
+            <p class="mode-desc">简历和岗位都已准备好，直接获取匹配分析报告</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== MODE A: RESUME → JOB RECOMMENDATIONS ===== -->
+  <section class="section" id="secA">
+    <div class="container">
+
+      <!-- Step Bar A -->
+      <div class="step-bar" id="stepBarA">
+        <div class="step-item active" data-step="A0">
+          <span class="step-num">1</span>
+          <span class="step-label">上传简历</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step-item" data-step="A1">
+          <span class="step-num">2</span>
+          <span class="step-label">岗位推荐</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step-item" data-step="A2">
+          <span class="step-num">3</span>
+          <span class="step-label">匹配报告</span>
+        </div>
+      </div>
+
+      <!-- A Step 0: Resume Input -->
+      <div class="step-panel active" id="secA0">
+        <div class="card">
+          <h2 class="card-title"><span class="icon-circle">1</span>上传你的简历</h2>
+          <p class="card-desc">支持 PDF、Word（.docx）、TXT 上传，或直接粘贴简历文本。</p>
+
+          <!-- File Upload Zone -->
+          <div class="upload-zone" id="uploadZoneA" onclick="document.getElementById('fileInputA').click()">
+            <div class="upload-icon">📎</div>
+            <p class="upload-tip">点击或拖拽上传简历文件</p>
+            <p class="upload-hint">支持 PDF · DOCX · TXT</p>
+            <input type="file" id="fileInputA" accept=".pdf,.docx,.doc,.txt" style="display:none"
+              onchange="handleFileUpload(event, 'A')" />
+          </div>
+          <div class="upload-status" id="uploadStatusA"></div>
+
+          <div class="divider-text">或者直接粘贴简历文本</div>
+
+          <textarea id="resumeInputA" class="textarea" rows="8"
+            placeholder="在此粘贴你的简历内容（纯文本）...&#10;&#10;建议包含：教育背景、专业技能、项目经历、实习/工作经历"></textarea>
+
+          <div class="btn-row">
+            <button class="btn btn-secondary" onclick="loadSampleResume('A')">加载示例简历</button>
+            <button class="btn btn-primary" id="btnA_next" onclick="goModeAStep(1)" disabled>
+              下一步：查看岗位推荐
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- A Step 1: Job Recommendations -->
+      <div class="step-panel" id="secA1">
+        <div class="card">
+          <h2 class="card-title"><span class="icon-circle">2</span>AI 岗位推荐</h2>
+          <p class="card-desc">根据你的简历，AI 正在为你推荐最匹配的岗位类型。</p>
+          <div id="jobRecommendList" class="job-recommend-list">
+            <div class="loading-skeleton">
+              <div class="skel-line w80"></div>
+              <div class="skel-line w60"></div>
+              <div class="skel-line w70"></div>
+            </div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="goModeAStep(0)">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            上一步
+          </button>
+          <button class="btn btn-primary" id="btnA_toResult" onclick="goModeAStep(2)" disabled>
+            选择岗位，开始深度分析
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- A Step 2: Match Report -->
+      <div class="step-panel" id="secA2">
+        <div id="resultSectionA"></div>
+        <div class="btn-row" style="justify-content:center; margin-top:2rem;">
+          <button class="btn btn-secondary" onclick="goModeAStep(1)">← 重新选择岗位</button>
+          <button class="btn btn-ghost" onclick="goHome()">返回首页</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===== MODE B: JD → RESUME ADVICE ===== -->
+  <section class="section" id="secB">
+    <div class="container">
+
+      <!-- Step Bar B -->
+      <div class="step-bar" id="stepBarB">
+        <div class="step-item active" data-step="B0">
+          <span class="step-num">1</span>
+          <span class="step-label">输入目标岗位</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step-item" data-step="B1">
+          <span class="step-num">2</span>
+          <span class="step-label">简历建议</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step-item" data-step="B2">
+          <span class="step-num">3</span>
+          <span class="step-label">分析结果</span>
+        </div>
+      </div>
+
+      <!-- B Step 0: JD Input -->
+      <div class="step-panel active" id="secB0">
+        <div class="card">
+          <h2 class="card-title"><span class="icon-circle">1</span>输入目标岗位 JD</h2>
+          <p class="card-desc">粘贴心仪岗位的招聘描述，AI 将为你分析简历优化方向。</p>
+
+          <!-- JD quick picks -->
+          <div class="sample-jobs">
+            <button class="chip" onclick="loadSampleJD(0, 'B')">产品经理（腾讯）</button>
+            <button class="chip" onclick="loadSampleJD(1, 'B')">数据分析（字节）</button>
+            <button class="chip" onclick="loadSampleJD(2, 'B')">前端开发（阿里）</button>
+            <button class="chip" onclick="loadSampleJD(3, 'B')">运营（美团）</button>
+          </div>
+
+          <!-- JD File Upload -->
+          <div class="upload-zone upload-zone-sm" id="uploadZoneB_jd" onclick="document.getElementById('fileInputB_jd').click()">
+            <div class="upload-icon" style="font-size:24px;">📄</div>
+            <p class="upload-tip" style="font-size:13px;">点击或拖拽上传 JD 文件（可选）</p>
+            <p class="upload-hint">支持 TXT · PDF · DOCX</p>
+            <input type="file" id="fileInputB_jd" accept=".pdf,.docx,.doc,.txt" style="display:none"
+              onchange="handleJDFileUpload(event, 'B')" />
+          </div>
+          <div class="upload-status" id="uploadStatusB_jd"></div>
+
+          <div class="divider-text">或直接粘贴岗位 JD 文本</div>
+
+          <label class="field-label">岗位 JD 内容</label>
+          <textarea id="jdInputB" class="textarea" rows="8"
+            placeholder="在此粘贴目标岗位的招聘描述（JD）...&#10;&#10;支持：招聘网站 JD / 公众号招聘文章 / 内推信息&#10;&#10;建议包含：岗位职责、任职要求、技能要求、学历要求等"></textarea>
+          <p class="card-desc" style="font-size:12px;color:var(--g-400);margin-top:6px">
+            💡 提示：如果是公众号招聘文章，全选复制后粘贴即可。文章中的图片（岗位海报、薪资表格截图等）无法复制，如有关键信息请手动补充到文本框中。
+          </p>
+
+          <div class="btn-row">
+            <button class="btn btn-secondary" onclick="loadSampleJD(0,'B')">加载示例 JD</button>
+            <button class="btn btn-primary" id="btnB_next" onclick="goModeBStep(1)" disabled>
+              下一步：上传我的简历
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- B Step 1: Resume Input for advice -->
+      <div class="step-panel" id="secB1">
+        <div class="card">
+          <h2 class="card-title"><span class="icon-circle">2</span>上传你的简历</h2>
+          <p class="card-desc">上传简历后，AI 将对照目标岗位 JD，生成个性化的简历优化建议。</p>
+
+          <div class="upload-zone" id="uploadZoneB_resume" onclick="document.getElementById('fileInputB_resume').click()">
+            <div class="upload-icon">📎</div>
+            <p class="upload-tip">点击或拖拽上传简历文件</p>
+            <p class="upload-hint">支持 PDF · DOCX · TXT</p>
+            <input type="file" id="fileInputB_resume" accept=".pdf,.docx,.doc,.txt" style="display:none"
+              onchange="handleFileUpload(event, 'B_resume')" />
+          </div>
+          <div class="upload-status" id="uploadStatusB_resume"></div>
+
+          <div class="divider-text">或直接粘贴简历文本</div>
+
+          <label class="field-label">简历内容</label>
+          <textarea id="resumeInputB" class="textarea" rows="8"
+            placeholder="在此粘贴你的简历内容..."></textarea>
+
+          <div class="btn-row">
+            <button class="btn btn-ghost" onclick="goModeBStep(0)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              上一步
+            </button>
+            <button class="btn btn-secondary" onclick="loadSampleResume('B')">加载示例简历</button>
+            <button class="btn btn-primary" id="btnB_analyze" onclick="startModeB()" disabled>
+              获取简历优化建议
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- B Step 2: Result -->
+      <div class="step-panel" id="secB2">
+        <div id="resultSectionB"></div>
+        <div class="btn-row" style="justify-content:center; margin-top:2rem;">
+          <button class="btn btn-secondary" onclick="goModeBStep(1)">← 修改简历</button>
+          <button class="btn btn-ghost" onclick="goHome()">返回首页</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===== MODE C: RESUME + JD → FULL ANALYSIS ===== -->
+  <section class="section" id="secC">
+    <div class="container">
+
+      <!-- Step Bar C -->
+      <div class="step-bar" id="stepBarC">
+        <div class="step-item active" data-step="C0">
+          <span class="step-num">1</span>
+          <span class="step-label">上传简历</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step-item" data-step="C1">
+          <span class="step-num">2</span>
+          <span class="step-label">输入岗位 JD</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step-item" data-step="C2">
+          <span class="step-num">3</span>
+          <span class="step-label">分析结果</span>
+        </div>
+      </div>
+
+      <!-- C Step 0: Resume -->
+      <div class="step-panel active" id="secC0">
+        <div class="card">
+          <h2 class="card-title"><span class="icon-circle">1</span>上传你的简历</h2>
+          <p class="card-desc">支持 PDF、Word（.docx）、TXT 上传，或直接粘贴简历文本。</p>
+
+          <div class="upload-zone" id="uploadZoneC" onclick="document.getElementById('fileInputC').click()">
+            <div class="upload-icon">📎</div>
+            <p class="upload-tip">点击或拖拽上传简历文件</p>
+            <p class="upload-hint">支持 PDF · DOCX · TXT</p>
+            <input type="file" id="fileInputC" accept=".pdf,.docx,.doc,.txt" style="display:none"
+              onchange="handleFileUpload(event, 'C')" />
+          </div>
+          <div class="upload-status" id="uploadStatusC"></div>
+
+          <div class="divider-text">或直接粘贴简历文本</div>
+
+          <label class="field-label">简历内容</label>
+          <textarea id="resumeInputC" class="textarea" rows="8"
+            placeholder="在此粘贴你的简历内容（纯文本）...&#10;&#10;建议包含：教育背景、专业技能、项目经历、实习/工作经历"></textarea>
+
+          <div class="btn-row">
+            <button class="btn btn-secondary" onclick="loadSampleResume('C')">加载示例简历</button>
+            <button class="btn btn-primary" id="btnC_next" onclick="goModeCStep(1)" disabled>
+              下一步：输入岗位 JD
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- C Step 1: JD -->
+      <div class="step-panel" id="secC1">
+        <div class="card">
+          <h2 class="card-title"><span class="icon-circle">2</span>输入目标岗位 JD</h2>
+          <p class="card-desc">粘贴目标岗位的招聘描述，或从下方示例中选择。</p>
+
+          <div class="sample-jobs">
+            <button class="chip" onclick="loadSampleJD(0, 'C')">产品经理（腾讯）</button>
+            <button class="chip" onclick="loadSampleJD(1, 'C')">数据分析（字节）</button>
+            <button class="chip" onclick="loadSampleJD(2, 'C')">前端开发（阿里）</button>
+            <button class="chip" onclick="loadSampleJD(3, 'C')">运营（美团）</button>
+          </div>
+
+          <!-- JD File Upload -->
+          <div class="upload-zone upload-zone-sm" id="uploadZoneC_jd" onclick="document.getElementById('fileInputC_jd').click()">
+            <div class="upload-icon" style="font-size:24px;">📄</div>
+            <p class="upload-tip" style="font-size:13px;">点击或拖拽上传 JD 文件（可选）</p>
+            <p class="upload-hint">支持 TXT · PDF · DOCX</p>
+            <input type="file" id="fileInputC_jd" accept=".pdf,.docx,.doc,.txt" style="display:none"
+              onchange="handleJDFileUpload(event, 'C')" />
+          </div>
+          <div class="upload-status" id="uploadStatusC_jd"></div>
+
+          <div class="divider-text">或直接粘贴岗位 JD 文本</div>
+
+          <label class="field-label">岗位 JD 内容</label>
+          <textarea id="jdInputC" class="textarea" rows="8"
+            placeholder="在此粘贴目标岗位的招聘描述（JD）...&#10;&#10;支持：招聘网站 JD / 公众号招聘文章 / 内推信息&#10;&#10;建议包含：岗位职责、任职要求、技能要求、学历要求等"></textarea>
+          <p class="card-desc" style="font-size:12px;color:var(--g-400);margin-top:6px">
+            💡 提示：如果是公众号招聘文章，全选复制后粘贴即可。文章中的图片（岗位海报、薪资表格截图等）无法复制，如有关键信息请手动补充到文本框中。
+          </p>
+
+          <div class="btn-row">
+            <button class="btn btn-ghost" onclick="goModeCStep(0)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              上一步
+            </button>
+            <button class="btn btn-primary" id="btnC_analyze" onclick="startModeC()" disabled>
+              开始 AI 深度分析
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- C Step 2: Full Analysis Result -->
+      <div class="step-panel" id="secC2">
+        <div id="resultSectionC"></div>
+        <div class="btn-row" style="justify-content:center; margin-top:2rem;">
+          <button class="btn btn-secondary" onclick="goModeCStep(1)">← 重新选择岗位</button>
+          <button class="btn btn-ghost" onclick="goHome()">返回首页</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===== TOAST ===== -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <p>Offer 捕手 — AI-HR 线上实战营 · 作业一 · Demo 演示</p>
+  </footer>
+
+  <script src="sample-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
