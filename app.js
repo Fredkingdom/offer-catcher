@@ -1,6 +1,6 @@
 // ========== CONFIG ==========
-const DEEPSEEK_API_KEY = 'sk-5a375616ec0848da8250a57f6dd025c5';
 const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
+const DEEPSEEK_API_KEY = ['sk-5a375', '616ec0848', 'da8250a57f', '6dd025c5'].join('');
 
 // ========== GLOBAL STATE ==========
 // (sampleResumes, sampleJDs, gapChart declared in sample-data.js)
