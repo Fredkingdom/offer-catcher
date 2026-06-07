@@ -53,7 +53,7 @@
             <div class="mode-radio"></div>
             <div class="mode-icon">🎯</div>
             <h3 class="mode-title">我有目标岗，改简历</h3>
-            <p class="mode-desc">已有心仪岗位 JD，想知道简历如何优化</p>
+            <p class="mode-desc">已有心仪岗位，想知道简历如何优化</p>
           </div>
 
           <!-- Mode C -->
@@ -183,7 +183,7 @@
       <!-- B Step 0: JD Input -->
       <div class="step-panel active" id="secB0">
         <div class="card">
-          <h2 class="card-title"><span class="icon-circle">1</span>输入目标岗位 JD</h2>
+          <h2 class="card-title"><span class="icon-circle">1</span>输入目标岗位描述</h2>
           <p class="card-desc">粘贴心仪岗位的招聘描述，AI 将为你分析简历优化方向。</p>
 
           <!-- JD quick picks -->
@@ -197,24 +197,24 @@
           <!-- JD File Upload -->
           <div class="upload-zone upload-zone-sm" id="uploadZoneB_jd" onclick="document.getElementById('fileInputB_jd').click()">
             <div class="upload-icon" style="font-size:24px;">📄</div>
-            <p class="upload-tip" style="font-size:13px;">点击或拖拽上传 JD 文件（可选）</p>
+            <p class="upload-tip" style="font-size:13px;">点击或拖拽上传岗位描述文件（可选）</p>
             <p class="upload-hint">支持 TXT · PDF · DOCX</p>
             <input type="file" id="fileInputB_jd" accept=".pdf,.docx,.doc,.txt" style="display:none"
               onchange="handleJDFileUpload(event, 'B')" />
           </div>
           <div class="upload-status" id="uploadStatusB_jd"></div>
 
-          <div class="divider-text">或直接粘贴岗位 JD 文本</div>
+          <div class="divider-text">或直接粘贴岗位描述 文本</div>
 
-          <label class="field-label">岗位 JD 内容</label>
+          <label class="field-label">岗位描述 内容</label>
           <textarea id="jdInputB" class="textarea" rows="8"
-            placeholder="在此粘贴目标岗位的招聘描述（JD）...&#10;&#10;支持：招聘网站 JD / 公众号招聘文章 / 内推信息&#10;&#10;建议包含：岗位职责、任职要求、技能要求、学历要求等"></textarea>
+            placeholder="在此粘贴目标岗位的招聘描述...&#10;&#10;支持：招聘网站 / 公众号招聘文章 / 内推信息&#10;&#10;建议包含：岗位职责、任职要求、技能要求、学历要求等"></textarea>
           <p class="card-desc" style="font-size:12px;color:var(--g-400);margin-top:6px">
             💡 提示：如果是公众号招聘文章，全选复制后粘贴即可。文章中的图片（岗位海报、薪资表格截图等）无法复制，如有关键信息请手动补充到文本框中。
           </p>
 
           <div class="btn-row">
-            <button class="btn btn-secondary" onclick="loadSampleJD(0,'B')">加载示例 JD</button>
+            <button class="btn btn-secondary" onclick="loadSampleJD(0,'B')">加载示例岗位描述</button>
             <button class="btn btn-primary" id="btnB_next" onclick="goModeBStep(1)" disabled>
               下一步：上传我的简历
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -227,7 +227,7 @@
       <div class="step-panel" id="secB1">
         <div class="card">
           <h2 class="card-title"><span class="icon-circle">2</span>上传你的简历</h2>
-          <p class="card-desc">上传简历后，AI 将对照目标岗位 JD，生成个性化的简历优化建议。</p>
+          <p class="card-desc">上传简历后，AI 将对照目标岗位描述，生成个性化的简历优化建议。</p>
 
           <div class="upload-zone" id="uploadZoneB_resume" onclick="document.getElementById('fileInputB_resume').click()">
             <div class="upload-icon">📎</div>
@@ -283,7 +283,7 @@
         <div class="step-line"></div>
         <div class="step-item" data-step="C1">
           <span class="step-num">2</span>
-          <span class="step-label">输入岗位 JD</span>
+          <span class="step-label">输入岗位描述</span>
         </div>
         <div class="step-line"></div>
         <div class="step-item" data-step="C2">
@@ -316,7 +316,7 @@
           <div class="btn-row">
             <button class="btn btn-secondary" onclick="loadSampleResume('C')">加载示例简历</button>
             <button class="btn btn-primary" id="btnC_next" onclick="goModeCStep(1)" disabled>
-              下一步：输入岗位 JD
+              下一步：输入岗位描述
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
@@ -326,7 +326,7 @@
       <!-- C Step 1: JD -->
       <div class="step-panel" id="secC1">
         <div class="card">
-          <h2 class="card-title"><span class="icon-circle">2</span>输入目标岗位 JD</h2>
+          <h2 class="card-title"><span class="icon-circle">2</span>输入目标岗位描述</h2>
           <p class="card-desc">粘贴目标岗位的招聘描述，或从下方示例中选择。</p>
 
           <div class="sample-jobs">
@@ -339,18 +339,18 @@
           <!-- JD File Upload -->
           <div class="upload-zone upload-zone-sm" id="uploadZoneC_jd" onclick="document.getElementById('fileInputC_jd').click()">
             <div class="upload-icon" style="font-size:24px;">📄</div>
-            <p class="upload-tip" style="font-size:13px;">点击或拖拽上传 JD 文件（可选）</p>
+            <p class="upload-tip" style="font-size:13px;">点击或拖拽上传岗位描述文件（可选）</p>
             <p class="upload-hint">支持 TXT · PDF · DOCX</p>
             <input type="file" id="fileInputC_jd" accept=".pdf,.docx,.doc,.txt" style="display:none"
               onchange="handleJDFileUpload(event, 'C')" />
           </div>
           <div class="upload-status" id="uploadStatusC_jd"></div>
 
-          <div class="divider-text">或直接粘贴岗位 JD 文本</div>
+          <div class="divider-text">或直接粘贴岗位描述 文本</div>
 
-          <label class="field-label">岗位 JD 内容</label>
+          <label class="field-label">岗位描述 内容</label>
           <textarea id="jdInputC" class="textarea" rows="8"
-            placeholder="在此粘贴目标岗位的招聘描述（JD）...&#10;&#10;支持：招聘网站 JD / 公众号招聘文章 / 内推信息&#10;&#10;建议包含：岗位职责、任职要求、技能要求、学历要求等"></textarea>
+            placeholder="在此粘贴目标岗位的招聘描述...&#10;&#10;支持：招聘网站 / 公众号招聘文章 / 内推信息&#10;&#10;建议包含：岗位职责、任职要求、技能要求、学历要求等"></textarea>
           <p class="card-desc" style="font-size:12px;color:var(--g-400);margin-top:6px">
             💡 提示：如果是公众号招聘文章，全选复制后粘贴即可。文章中的图片（岗位海报、薪资表格截图等）无法复制，如有关键信息请手动补充到文本框中。
           </p>

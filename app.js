@@ -269,7 +269,7 @@ async function handleJDFileUpload(event, mode) {
   const file = event.target.files[0];
   if (!file) return;
   const statusId = mode + '_jd';
-  setUploadStatus(statusId, '⏳ 正在解析 JD 文件...');
+  setUploadStatus(statusId, '⏳ 正在解析岗位描述文件...');
 
   try {
     let text = '';
@@ -295,9 +295,9 @@ async function handleJDFileUpload(event, mode) {
       document.getElementById('btnC_analyze').disabled = false;
     }
 
-    setUploadStatus(statusId, `✅ 已解析 JD：${file.name}`);
+    setUploadStatus(statusId, `✅ 已解析岗位描述：${file.name}`);
   } catch (e) {
-    setUploadStatus(statusId, '❌ 文件解析失败，请直接粘贴 JD 文本', true);
+    setUploadStatus(statusId, '❌ 文件解析失败，请直接粘贴岗位描述文本', true);
   }
 }
 
@@ -432,7 +432,7 @@ async function parseResumeWithAI(resumeText) {
 
 // Step 2: Match analysis
 async function matchAnalysisWithAI(parsedProfile, jdText) {
-  const systemPrompt = `你是一个专业的简历-岗位匹配分析 AI 助手。基于求职者简历信息和岗位 JD，给出真实、具体的匹配度分析。
+  const systemPrompt = `你是一个专业的简历-岗位匹配分析 AI 助手。基于求职者简历信息和岗位描述，给出真实、具体的匹配度分析。
 严格以 JSON 格式返回：
 {
   "overallScore": 78,
@@ -451,12 +451,12 @@ async function matchAnalysisWithAI(parsedProfile, jdText) {
   ],
   "summary": "整体分析总结（150字以内）",
   "skillDetails": {
-    "matched": ["已匹配技能（只写简历和JD都有的）"],
+    "matched": ["已匹配技能（只写简历和岗位描述都有的）"],
     "partial": ["部分匹配技能"],
-    "missing": ["JD要求但简历缺失的技能"]
+    "missing": ["岗位描述要求但简历缺失的技能"]
   }
 }
-关键要求：1.所有内容必须基于提供的真实简历数据，严禁编造示例。2.skillDetails必须对比JD和简历实际内容生成。3.评分客观公正，0-100分。`;
+关键要求：1.所有内容必须基于提供的真实简历数据，严禁编造示例。2.skillDetails必须对比岗位描述和简历实际内容生成。3.评分客观公正，0-100分。`;
 
   // Build education summary for prompt
   const eduSummary = (parsedProfile.educationList || []).map(e =>
@@ -468,7 +468,7 @@ async function matchAnalysisWithAI(parsedProfile, jdText) {
     '教育经历：\n' + (eduSummary || '未识别') + '\n' +
     '技能：' + (parsedProfile.skills || []).join('、') + '\n' +
     '主要经历：\n' + (parsedProfile.experience || []).map(e => '- ' + e).join('\n') + '\n' +
-    '\n=== 目标岗位 JD ===\n' + jdText.substring(0, 2000) +
+    '\n=== 目标岗位描述 ===\n' + jdText.substring(0, 2000) +
     '\n\n请分析匹配度，严格按JSON格式返回。';
 
   return await callDeepSeekAPI(systemPrompt, userPrompt, 4096);
@@ -779,7 +779,7 @@ function buildLoadingHTML() {
       <div class="loading-overlay">
         <div class="loading-spinner"></div>
         <p class="loading-text">AI 正在分析匹配度，请稍候...</p>
-        <p class="loading-sub">解析简历信息 · 对比岗位 JD · 生成优化建议</p>
+        <p class="loading-sub">解析简历信息 · 对比岗位描述 · 生成优化建议</p>
       </div>
     </div>
     <div class="card">
@@ -964,7 +964,7 @@ function buildResultHTML(result) {
   <div class="tab-panel" id="panel-suggest">
     <div class="card">
       <h3 class="panel-title">AI 简历优化建议</h3>
-      <p class="card-desc">以下建议基于 Gap 分析，针对目标 JD 定向生成。格式：<strong>[位置] → [修改建议] → [理由]</strong></p>
+      <p class="card-desc">以下建议基于 Gap 分析，针对目标岗位描述 定向生成。格式：<strong>[位置] → [修改建议] → [理由]</strong></p>
       <div class="suggest-list">
         ${(result.suggestions || []).map((s, i) => `
           <div class="suggest-item">
