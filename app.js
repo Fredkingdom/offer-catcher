@@ -838,7 +838,7 @@ function buildResultHTML(result) {
   <div class="tab-nav">
     <button class="tab active" onclick="switchResultTab(this, 'parsed')">简历解析</button>
     <button class="tab" onclick="switchResultTab(this, 'match')">匹配详情</button>
-    <button class="tab" onclick="switchResultTab(this, 'gap')">Gap 分析</button>
+    <button class="tab" onclick="switchResultTab(this, 'gap')">差距分析</button>
     <button class="tab" onclick="switchResultTab(this, 'suggest')">优化建议</button>
   </div>
 
@@ -964,7 +964,7 @@ function buildResultHTML(result) {
   <div class="tab-panel" id="panel-suggest">
     <div class="card">
       <h3 class="panel-title">AI 简历优化建议</h3>
-      <p class="card-desc">以下建议基于 Gap 分析，针对目标岗位描述 定向生成。格式：<strong>[位置] → [修改建议] → [理由]</strong></p>
+      <p class="card-desc">以下建议基于差距分析，针对目标岗位描述 定向生成。格式：<strong>[位置] → [修改建议] → [理由]</strong></p>
       <div class="suggest-list">
         ${(result.suggestions || []).map((s, i) => `
           <div class="suggest-item">
