@@ -11,6 +11,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- mammoth.js -->
   <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+  <!-- NOTE: DOCX/PDF resume download removed due to encoding/layout issues -->
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -25,6 +26,43 @@
              onkeydown="if(event.key==='Enter')checkPwd()" autofocus />
       <button class="btn btn-primary pwd-btn" id="pwdBtn" onclick="checkPwd()">进入 Demo</button>
       <p class="pwd-hint" id="pwdHint"></p>
+    </div>
+  </div>
+
+  <!-- ===== JOB PICKER MODAL ===== -->
+  <div class="modal-overlay" id="jobPickerModal">
+    <div class="modal-card job-picker-card">
+      <div class="job-picker-header">
+        <h2 class="job-picker-title">📋 从岗位库选择岗位</h2>
+        <button class="job-picker-close" onclick="closeJobPicker()">✕</button>
+      </div>
+      <div class="job-picker-search">
+        <span class="jobs-search-icon">🔍</span>
+        <input type="text" id="jobPickerSearch" class="jobs-search-input" placeholder="搜索岗位名称、城市..."
+          oninput="filterJobPicker()" />
+      </div>
+      <div class="job-picker-filters">
+        <div class="jobs-filter-chips">
+          <button class="jobs-chip active" data-ptype="all" onclick="togglePickerType(this, 'all')">全部</button>
+          <button class="jobs-chip" data-ptype="应届实习" onclick="togglePickerType(this, '应届实习')">应届实习</button>
+          <button class="jobs-chip" data-ptype="校招" onclick="togglePickerType(this, '校招')">校招</button>
+          <button class="jobs-chip" data-ptype="日常实习" onclick="togglePickerType(this, '日常实习')">日常实习</button>
+          <button class="jobs-chip" data-ptype="青云计划" onclick="togglePickerType(this, '青云计划')">青云计划</button>
+          <button class="jobs-chip" data-ptype="留学生实习" onclick="togglePickerType(this, '留学生实习')">留学生实习</button>
+        </div>
+      </div>
+      <div class="job-picker-list" id="jobPickerList">
+        <div class="loading-skeleton">
+          <div class="skel-line w80"></div>
+          <div class="skel-line w60"></div>
+        </div>
+      </div>
+      <div class="load-more-wrap" id="pickerLoadMoreWrap" style="display:none">
+        <button class="load-more-btn" onclick="loadMorePickerJobs()">加载更多（剩余 <span id="pickerLoadMoreCount">0</span> 条）</button>
+      </div>
+      <div class="job-picker-footer">
+        <button class="btn btn-ghost" onclick="closeJobPicker()">取消</button>
+      </div>
     </div>
   </div>
 
@@ -75,6 +113,14 @@
             <div class="mode-icon">⚡</div>
             <h3 class="mode-title">简历+岗位，做分析</h3>
             <p class="mode-desc">简历和岗位都已准备好，直接获取匹配分析报告</p>
+          </div>
+
+          <!-- Mode Jobs: 岗位库 -->
+          <div class="mode-card" onclick="selectMode('Jobs')">
+            <div class="mode-radio"></div>
+            <div class="mode-icon">🔍</div>
+            <h3 class="mode-title">岗位库</h3>
+            <p class="mode-desc">浏览腾讯真实在招岗位，筛选并查看详细职位描述</p>
           </div>
         </div>
       </div>
@@ -139,6 +185,14 @@
         <div class="card">
           <h2 class="card-title"><span class="icon-circle">2</span>AI 岗位推荐</h2>
           <p class="card-desc">根据你的简历，AI 正在为你推荐最匹配的岗位类型。</p>
+
+          <!-- Source toggle -->
+          <div class="source-toggle" id="sourceToggleA">
+            <span class="source-toggle-label">数据源：</span>
+            <button class="toggle-option active" data-source="ai" onclick="switchSource('A','ai')">🤖 AI 生成</button>
+            <button class="toggle-option" data-source="local" onclick="switchSource('A','local')">🔍 真实岗位库</button>
+          </div>
+
           <div id="jobRecommendList" class="job-recommend-list">
             <div class="loading-skeleton">
               <div class="skel-line w80"></div>
@@ -219,7 +273,10 @@
 
           <div class="divider-text">或直接粘贴岗位描述 文本</div>
 
-          <label class="field-label">岗位描述 内容</label>
+          <div class="jd-input-header">
+            <label class="field-label" style="margin-bottom:0">岗位描述 内容</label>
+            <button class="btn btn-sm btn-outline" onclick="openJobPicker('B')">📋 从岗位库选择</button>
+          </div>
           <textarea id="jdInputB" class="textarea" rows="8"
             placeholder="在此粘贴目标岗位的招聘描述...&#10;&#10;支持：招聘网站 / 公众号招聘文章 / 内推信息&#10;&#10;建议包含：岗位职责、任职要求、技能要求、学历要求等"></textarea>
           <p class="card-desc" style="font-size:12px;color:var(--g-400);margin-top:6px">
@@ -361,7 +418,10 @@
 
           <div class="divider-text">或直接粘贴岗位描述 文本</div>
 
-          <label class="field-label">岗位描述 内容</label>
+          <div class="jd-input-header">
+            <label class="field-label" style="margin-bottom:0">岗位描述 内容</label>
+            <button class="btn btn-sm btn-outline" onclick="openJobPicker('C')">📋 从岗位库选择</button>
+          </div>
           <textarea id="jdInputC" class="textarea" rows="8"
             placeholder="在此粘贴目标岗位的招聘描述...&#10;&#10;支持：招聘网站 / 公众号招聘文章 / 内推信息&#10;&#10;建议包含：岗位职责、任职要求、技能要求、学历要求等"></textarea>
           <p class="card-desc" style="font-size:12px;color:var(--g-400);margin-top:6px">
@@ -393,6 +453,62 @@
     </div>
   </section>
 
+  <!-- ===== JOB DATABASE (岗位库) ===== -->
+  <section class="section" id="secJobs">
+    <div class="container">
+      <div class="card">
+        <h2 class="card-title">🔍 腾讯岗位库</h2>
+        <p class="card-desc">共 <span id="jobsTotalCount">0</span> 个在招岗位，数据来源：join.qq.com</p>
+
+        <!-- Search bar -->
+        <div class="jobs-search-row">
+          <div class="jobs-search-input-wrap">
+            <span class="jobs-search-icon">🔍</span>
+            <input type="text" id="jobsSearchInput" class="jobs-search-input" placeholder="搜索岗位名称、城市、方向..."
+              oninput="filterJobs()" />
+          </div>
+          <span class="jobs-result-hint" id="jobsResultHint"></span>
+        </div>
+
+        <!-- Filter chips -->
+        <div class="jobs-filter-section">
+          <span class="jobs-filter-label">招聘类型：</span>
+          <div class="jobs-filter-chips" id="jobsTypeFilters">
+            <button class="jobs-chip active" data-type="all" onclick="toggleJobTypeFilter(this, 'all')">全部</button>
+            <button class="jobs-chip" data-type="应届实习" onclick="toggleJobTypeFilter(this, '应届实习')">应届实习</button>
+            <button class="jobs-chip" data-type="校招" onclick="toggleJobTypeFilter(this, '校招')">校招</button>
+            <button class="jobs-chip" data-type="日常实习" onclick="toggleJobTypeFilter(this, '日常实习')">日常实习</button>
+            <button class="jobs-chip" data-type="青云计划" onclick="toggleJobTypeFilter(this, '青云计划')">青云计划</button>
+            <button class="jobs-chip" data-type="留学生实习" onclick="toggleJobTypeFilter(this, '留学生实习')">留学生实习</button>
+          </div>
+        </div>
+        <div class="jobs-filter-section">
+          <span class="jobs-filter-label">方向：</span>
+          <div class="jobs-filter-chips" id="jobsDirFilters">
+            <button class="jobs-chip active" data-dir="all" onclick="toggleJobDirFilter(this, 'all')">全部</button>
+            <button class="jobs-chip" data-dir="技术" onclick="toggleJobDirFilter(this, '技术')">技术</button>
+            <button class="jobs-chip" data-dir="产品" onclick="toggleJobDirFilter(this, '产品')">产品</button>
+            <button class="jobs-chip" data-dir="设计" onclick="toggleJobDirFilter(this, '设计')">设计</button>
+            <button class="jobs-chip" data-dir="运营" onclick="toggleJobDirFilter(this, '运营')">运营</button>
+            <button class="jobs-chip" data-dir="职能" onclick="toggleJobDirFilter(this, '职能')">职能</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Job cards list -->
+      <div class="jobs-list" id="jobsList">
+        <div class="loading-skeleton">
+          <div class="skel-line w80"></div>
+          <div class="skel-line w60"></div>
+          <div class="skel-line w70"></div>
+        </div>
+      </div>
+      <div class="load-more-wrap" id="loadMoreWrap" style="display:none">
+        <button class="load-more-btn" id="loadMoreBtn" onclick="loadMoreJobs()">加载更多（剩余 <span id="loadMoreCount">0</span> 条）</button>
+      </div>
+    </div>
+  </section>
+
   <!-- ===== TOAST ===== -->
   <div class="toast" id="toast"></div>
 
@@ -402,6 +518,7 @@
   </footer>
 
   <script src="sample-data.js"></script>
+  <script src="jobs-data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

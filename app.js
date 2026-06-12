@@ -26,6 +26,14 @@ function goHome() {
   stateA = { resumeText: '', selectedJD: null };
   stateB = { jdText: '', resumeText: '' };
   stateC = { resumeText: '', jdText: '' };
+  sourceModeA = 'ai';
+  selectedPickerJob = null;
+  pickerTargetMode = null;
+
+  // Reset source toggle UI
+  document.querySelectorAll('#sourceToggleA .toggle-option').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.source === 'ai');
+  });
 
   // 2. Reset step counters
   modeAStep = 0;
@@ -85,6 +93,12 @@ function goHome() {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('secHome').classList.add('active');
   document.getElementById('navHomeBtn').style.display = 'none';
+
+  // 12. Clear job search and close any modals
+  const searchInput = document.getElementById('jobsSearchInput');
+  if (searchInput) searchInput.value = '';
+  document.getElementById('jobPickerModal').classList.remove('active');
+
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -94,6 +108,11 @@ function selectMode(mode) {
   document.getElementById('sec' + mode).classList.add('active');
   document.getElementById('navHomeBtn').style.display = 'flex';
   window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Load jobs data when entering 岗位库 mode
+  if (mode === 'Jobs' && allJobs.length === 0) {
+    loadJobsData();
+  }
 }
 
 // ---- Mode A steps ----
@@ -625,15 +644,61 @@ async function runModeARecommendations() {
   </div>`;
   document.getElementById('btnA_toResult').disabled = true;
 
+  // Source toggle: local job database
+  if (sourceModeA === 'local') {
+    if (allJobs.length === 0) {
+      try { await loadJobsDataSync(); } catch(e) {}
+    }
+    if (allJobs.length > 0) {
+      const result = matchJobsLocally(stateA.resumeText);
+      stateA.recommendations = result;
+      stateA._sourceMode = 'local';
+      renderJobRecommendations(result);
+      return;
+    }
+  }
+
+  // AI mode (default)
   try {
     const result = await jobRecommendWithAI(stateA.resumeText);
     stateA.recommendations = result;
+    stateA._sourceMode = 'ai';
     renderJobRecommendations(result);
   } catch (e) {
     console.error('Mode A AI failed:', e);
     container.innerHTML = `<div class="error-msg">⚠️ AI 分析失败：${e.message}。请检查网络连接后重试。</div>`;
     showToast('AI 分析失败，请重试');
   }
+}
+
+// Sync version of load jobs data
+function loadJobsDataSync() {
+  return new Promise((resolve) => {
+    // Try inline data first
+    if (typeof window.JOBS_DATA !== 'undefined' && window.JOBS_DATA && window.JOBS_DATA.jobs) {
+      allJobs = window.JOBS_DATA.jobs || [];
+      const countEl = document.getElementById('jobsTotalCount');
+      if (countEl) countEl.textContent = window.JOBS_DATA.total || allJobs.length;
+      resolve();
+      return;
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', 'jobs-data.json', true);
+    xhr.onload = function() {
+      if (xhr.status === 200 || xhr.status === 0) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          allJobs = data.jobs || [];
+          const countEl = document.getElementById('jobsTotalCount');
+          if (countEl) countEl.textContent = data.total || allJobs.length;
+        } catch(e) { console.error('Parse jobs data failed:', e); }
+      }
+      resolve();
+    };
+    xhr.onerror = function() { console.error('XHR load jobs failed'); resolve(); };
+    xhr.send();
+  });
 }
 
 function renderJobRecommendations(result) {
@@ -708,8 +773,21 @@ async function goModeAStep(step) {
     if (!stateA.recommendations) return;
     const selectedJob = stateA.recommendations.recommendations?.[stateA.selectedJobIndex || 0];
     if (selectedJob) {
-      const mockJD = `岗位名称：${selectedJob.jobTitle}\n岗位要求：\n${(selectedJob.keyRequirements || []).join('\n')}`;
-      stateA.selectedJD = mockJD;
+      // If local source, use full job data; otherwise build from AI recommendation
+      if (stateA._sourceMode === 'local' && selectedJob._jobData) {
+        const j = selectedJob._jobData;
+        let jdFull = `【岗位名称】${j.title}\n`;
+        if (j.cities) jdFull += `【工作地点】${j.cities}\n`;
+        if (j.bgs) jdFull += `【事业群】${j.bgs}\n`;
+        if (j.label) jdFull += `【招聘类型】${j.label}\n`;
+        if (j.desc) jdFull += `【岗位职责】\n${j.desc}\n`;
+        if (j.req) jdFull += `【任职要求】\n${j.req}\n`;
+        if (j.bonus) jdFull += `【加分项】\n${j.bonus}\n`;
+        stateA.selectedJD = jdFull;
+      } else {
+        const mockJD = `岗位名称：${selectedJob.jobTitle}\n岗位要求：\n${(selectedJob.keyRequirements || []).join('\n')}`;
+        stateA.selectedJD = mockJD;
+      }
     }
 
     modeAStep = 2;
@@ -986,6 +1064,7 @@ function buildResultHTML(result) {
           </div>`).join('') || '<p class="empty-tip">暂无优化建议</p>'}
       </div>
     </div>
+
   </div>
   `;
 }
@@ -1319,6 +1398,508 @@ function showToast(msg, duration = 3000) {
     });
   });
 })();
+
+// ========== JOB DATABASE (岗位库) ==========
+
+// Direction number → display name mapping (from join.qq.com API)
+const DIR_MAP = { 2: '技术', 3: '产品', 4: '设计', 5: '运营', 6: '职能' };
+// Type filter → actual label values mapping (chip name → label match logic)
+const TYPE_FILTER_MAP = {
+  '应届实习':  ['应届实习'],
+  '校招':      ['应届毕业生'],
+  '日常实习':  ['日常实习'],
+  '青云计划':  ['实习生 青云计划', '应届毕业生 青云计划'],
+  '留学生实习': ['Pre留学生实习']
+};
+
+let allJobs = [];
+let filteredJobs = [];
+let currentJobTypeFilter = 'all';
+let currentJobDirFilter = 'all';
+let sourceModeA = 'ai'; // 'ai' or 'local'
+let jobsPageSize = 12;
+let jobsDisplayedCount = 0;
+let pickerPageSize = 20;
+let pickerDisplayedCount = 0;
+let pickerTargetMode = null; // 'B' or 'C'
+let pickerTypeFilter = 'all';
+let selectedPickerJob = null;
+
+// Load jobs data — prefers inline window.JOBS_DATA, falls back to XHR
+function loadJobsData() {
+  // 1. Try inline data first (most reliable for file:// and all servers)
+  if (typeof window.JOBS_DATA !== 'undefined' && window.JOBS_DATA && window.JOBS_DATA.jobs) {
+    allJobs = window.JOBS_DATA.jobs || [];
+    document.getElementById('jobsTotalCount').textContent = window.JOBS_DATA.total || allJobs.length;
+    applyJobFilters();
+    return;
+  }
+
+  // 2. Fallback: XHR
+  const xhr = new XMLHttpRequest();
+  xhr.open('GET', 'jobs-data.json', true);
+  xhr.onload = function() {
+    if (xhr.status === 200 || xhr.status === 0) {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        allJobs = data.jobs || [];
+        document.getElementById('jobsTotalCount').textContent = data.total || allJobs.length;
+        applyJobFilters();
+      } catch (e) {
+        console.error('Failed to parse jobs data:', e);
+        document.getElementById('jobsList').innerHTML = '<div class="error-msg">⚠️ 岗位数据解析失败，请检查文件格式。</div>';
+      }
+    } else {
+      document.getElementById('jobsList').innerHTML = '<div class="error-msg">⚠️ 无法加载岗位数据（jobs-data.json），请确保文件存在。</div>';
+    }
+  };
+  xhr.onerror = function() {
+    console.error('XHR load jobs failed');
+    document.getElementById('jobsList').innerHTML = '<div class="error-msg">⚠️ 无法加载岗位数据（jobs-data.json），请确保文件存在。</div>';
+  };
+  xhr.send();
+}
+
+function applyJobFilters() {
+  const keyword = (document.getElementById('jobsSearchInput')?.value || '').trim().toLowerCase();
+
+  filteredJobs = allJobs.filter(job => {
+    // Type filter — use TYPE_FILTER_MAP for composite categories
+    if (currentJobTypeFilter !== 'all') {
+      const matchLabels = TYPE_FILTER_MAP[currentJobTypeFilter];
+      if (matchLabels && !matchLabels.includes(job.label)) return false;
+      if (!matchLabels && job.label !== currentJobTypeFilter) return false;
+    }
+    // Direction filter
+    const dirName = DIR_MAP[job.direction] || '';
+    if (currentJobDirFilter !== 'all' && dirName !== currentJobDirFilter) return false;
+    // Keyword search
+    if (keyword) {
+      const haystack = (job.title + ' ' + job.cities + ' ' + dirName + ' ' + job.bgs).toLowerCase();
+      if (!haystack.includes(keyword)) return false;
+    }
+    return true;
+  });
+
+  document.getElementById('jobsResultHint').textContent = `显示 ${filteredJobs.length} 个岗位`;
+  renderJobCards();
+}
+
+function filterJobs() {
+  applyJobFilters();
+}
+
+function toggleJobTypeFilter(btn, type) {
+  currentJobTypeFilter = type;
+  document.querySelectorAll('#jobsTypeFilters .jobs-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  applyJobFilters();
+}
+
+function toggleJobDirFilter(btn, dir) {
+  currentJobDirFilter = dir;
+  document.querySelectorAll('#jobsDirFilters .jobs-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  applyJobFilters();
+}
+
+function renderJobCards() {
+  const container = document.getElementById('jobsList');
+  if (!container) return;
+
+  if (filteredJobs.length === 0) {
+    container.innerHTML = '<p class="empty-tip">未找到匹配的岗位</p>';
+    updateLoadMoreBtn();
+    return;
+  }
+
+  // Reset to first page when filters change
+  jobsDisplayedCount = jobsPageSize;
+
+  let html = '';
+  const displayJobs = filteredJobs.slice(0, jobsDisplayedCount);
+  displayJobs.forEach((job, i) => {
+    html += `
+      <div class="job-card" id="jobCard${i}">
+        <div class="job-card-header" onclick="toggleJobCard(${i})">
+          <div class="job-card-title-row">
+            <div class="job-card-title">${job.title}</div>
+            <div class="job-card-meta">
+              ${job.label ? `<span class="job-card-tag type">${job.label}</span>` : ''}
+              ${job.direction ? `<span class="job-card-tag dir">${DIR_MAP[job.direction] || job.direction}</span>` : ''}
+              ${job.bgs ? `<span class="job-card-tag bg">${job.bgs}</span>` : ''}
+            </div>
+            <div class="job-card-cities" style="margin-top:4px">📍 ${job.cities || '未指定'}</div>
+          </div>
+          <span class="job-card-expand-icon">▼</span>
+        </div>
+        <div class="job-card-body">
+          ${job.desc ? `
+          <div class="job-card-body-section">
+            <h4>📋 岗位职责</h4>
+            <p>${job.desc}</p>
+          </div>` : ''}
+          ${job.req ? `
+          <div class="job-card-body-section">
+            <h4>✅ 任职要求</h4>
+            <p>${job.req}</p>
+          </div>` : ''}
+          ${job.bonus ? `
+          <div class="job-card-body-section">
+            <h4>⭐ 加分项</h4>
+            <p>${job.bonus}</p>
+          </div>` : ''}
+          ${job.url ? `<a href="${job.url}" target="_blank" class="job-card-apply-link" onclick="event.stopPropagation()">📤 去投递</a>` : ''}
+          <button class="job-card-use-btn" onclick="event.stopPropagation(); useJobForMode(${i})">
+            🎯 使用此岗位进行匹配
+          </button>
+        </div>
+      </div>`;
+  });
+  container.innerHTML = html;
+  updateLoadMoreBtn();
+}
+
+function loadMoreJobs() {
+  jobsDisplayedCount += jobsPageSize;
+  const container = document.getElementById('jobsList');
+  const displayJobs = filteredJobs.slice(0, jobsDisplayedCount);
+  let html = '';
+  displayJobs.forEach((job, i) => {
+    html += `
+      <div class="job-card" id="jobCard${i}">
+        <div class="job-card-header" onclick="toggleJobCard(${i})">
+          <div class="job-card-title-row">
+            <div class="job-card-title">${job.title}</div>
+            <div class="job-card-meta">
+              ${job.label ? `<span class="job-card-tag type">${job.label}</span>` : ''}
+              ${job.direction ? `<span class="job-card-tag dir">${DIR_MAP[job.direction] || job.direction}</span>` : ''}
+              ${job.bgs ? `<span class="job-card-tag bg">${job.bgs}</span>` : ''}
+            </div>
+            <div class="job-card-cities" style="margin-top:4px">📍 ${job.cities || '未指定'}</div>
+          </div>
+          <span class="job-card-expand-icon">▼</span>
+        </div>
+        <div class="job-card-body">
+          ${job.desc ? `
+          <div class="job-card-body-section">
+            <h4>📋 岗位职责</h4>
+            <p>${job.desc}</p>
+          </div>` : ''}
+          ${job.req ? `
+          <div class="job-card-body-section">
+            <h4>✅ 任职要求</h4>
+            <p>${job.req}</p>
+          </div>` : ''}
+          ${job.bonus ? `
+          <div class="job-card-body-section">
+            <h4>⭐ 加分项</h4>
+            <p>${job.bonus}</p>
+          </div>` : ''}
+          ${job.url ? `<a href="${job.url}" target="_blank" class="job-card-apply-link" onclick="event.stopPropagation()">📤 去投递</a>` : ''}
+          <button class="job-card-use-btn" onclick="event.stopPropagation(); useJobForMode(${i})">
+            🎯 使用此岗位进行匹配
+          </button>
+        </div>
+      </div>`;
+  });
+  container.innerHTML = html;
+  updateLoadMoreBtn();
+}
+
+function updateLoadMoreBtn() {
+  const wrap = document.getElementById('loadMoreWrap');
+  const countSpan = document.getElementById('loadMoreCount');
+  if (!wrap) return;
+  const remaining = filteredJobs.length - jobsDisplayedCount;
+  if (remaining > 0) {
+    wrap.style.display = 'block';
+    countSpan.textContent = remaining;
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+function toggleJobCard(index) {
+  const card = document.getElementById('jobCard' + index);
+  if (!card) return;
+  card.classList.toggle('expanded');
+}
+
+function useJobForMode(index) {
+  const job = filteredJobs[index];
+  if (!job) return;
+
+  // Build JD text from job
+  let jdText = `【岗位名称】${job.title}\n`;
+  if (job.cities) jdText += `【工作地点】${job.cities}\n`;
+  if (job.bgs) jdText += `【事业群】${job.bgs}\n`;
+  if (job.direction) jdText += `【方向】${DIR_MAP[job.direction] || job.direction}\n`;
+  if (job.label) jdText += `【招聘类型】${job.label}\n`;
+  if (job.desc) jdText += `【岗位职责】\n${job.desc}\n`;
+  if (job.req) jdText += `【任职要求】\n${job.req}\n`;
+  if (job.bonus) jdText += `【加分项】\n${job.bonus}\n`;
+
+  // Navigate to Mode B and fill
+  currentMode = 'B';
+  selectMode('B');
+
+  // Fill JD
+  document.getElementById('jdInputB').value = jdText;
+  stateB.jdText = jdText;
+  document.getElementById('btnB_next').disabled = false;
+
+  showToast('已填充岗位描述到 Mode B，请上传简历继续');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ========== SOURCE TOGGLE (Mode A) ==========
+
+function switchSource(mode, source) {
+  if (mode === 'A') {
+    sourceModeA = source;
+    document.querySelectorAll('#sourceToggleA .toggle-option').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.source === source);
+    });
+    // Re-run recommendations
+    runModeARecommendations();
+  }
+}
+
+// Local job matching for Mode A (真实岗位库)
+function matchJobsLocally(resumeText) {
+  const profile = extractProfileFromText(resumeText);
+  const resumeSkills = (profile.skills || []).join(' ').toLowerCase();
+  const resumeExp = (profile.experience || []).join(' ').toLowerCase();
+  const resumeKeywords = (profile.keywords || []).join(' ').toLowerCase();
+  const resumeFull = (resumeText || '').toLowerCase();
+
+  // Score each job
+  const scored = allJobs.map(job => {
+    let score = 0;
+    const jobText = ((job.title || '') + ' ' + (job.desc || '') + ' ' + (job.req || '') + ' ' + (job.bonus || '')).toLowerCase();
+
+    // Title keyword matches
+    const titleLow = (job.title || '').toLowerCase();
+    if (profile.skills) {
+      profile.skills.forEach(skill => {
+        const sl = skill.toLowerCase();
+        if (jobText.includes(sl)) score += 8;
+        if (titleLow.includes(sl)) score += 15;
+      });
+    }
+
+    // Direction match
+    const jobDir = (DIR_MAP[job.direction] || '').toLowerCase();
+    if (resumeFull.includes('前端') && jobDir.includes('技术')) score += 5;
+    if (resumeFull.includes('产品') && jobDir.includes('产品')) score += 5;
+    if (resumeFull.includes('数据') && jobDir.includes('技术')) score += 5;
+    if (resumeFull.includes('运营') && jobDir.includes('运营')) score += 5;
+    if (resumeFull.includes('设计') && jobDir.includes('设计')) score += 5;
+
+    // Education match
+    if (profile.educationList && profile.educationList.length > 0) {
+      const eduDegrees = profile.educationList.map(e => e.degree).join('');
+      if (eduDegrees.includes('硕士') || eduDegrees.includes('博士')) score += 3;
+    }
+
+    return { job, score };
+  });
+
+  // Sort by score descending, take top 4
+  scored.sort((a, b) => b.score - a.score);
+  const top = scored.slice(0, 4);
+
+  // Normalize scores to 0-100 range (avoid divide-by-zero)
+  const maxScore = top.length > 0 ? Math.max(top[0].score, 1) : 1;
+
+  // Build profile summary
+  const eduSummary = (profile.educationList || []).map(e => e.degree + ' · ' + e.school + (e.major ? ' · ' + e.major : '')).join(', ');
+
+  return {
+    profile: {
+      name: profile.name || '求职者',
+      educationList: profile.educationList || [],
+      topSkills: (profile.skills || []).slice(0, 5)
+    },
+    overallAdvice: '以下是根据你的简历从腾讯真实岗位库中匹配的岗位，分数越高表示匹配度越高。',
+    recommendations: top.map(item => ({
+      jobTitle: item.job.title,
+      company: item.job.bgs || '腾讯',
+      matchScore: Math.min(95, Math.round((item.score / maxScore) * 85 + 10)),
+      reasons: [
+        '岗位方向：' + (DIR_MAP[item.job.direction] || item.job.direction || '未指定'),
+        '工作城市：' + (item.job.cities || '未指定'),
+        '招聘类型：' + (item.job.label || '未指定')
+      ],
+      keyRequirements: (item.job.req || '').split('\n').filter(l => l.trim()).slice(0, 4),
+      gapTips: ['请查看岗位详情了解具体任职要求'],
+      _jobData: item.job
+    }))
+  };
+}
+
+// ========== JOB PICKER MODAL ==========
+
+function openJobPicker(mode) {
+  if (allJobs.length === 0) {
+    showToast('岗位数据正在加载中，请稍候...');
+    return;
+  }
+  pickerTargetMode = mode;
+  selectedPickerJob = null;
+  pickerTypeFilter = 'all';
+  document.getElementById('jobPickerSearch').value = '';
+  document.querySelectorAll('#jobPickerModal .jobs-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.ptype === 'all');
+  });
+  document.getElementById('jobPickerModal').classList.add('active');
+  renderJobPickerList();
+}
+
+function closeJobPicker() {
+  document.getElementById('jobPickerModal').classList.remove('active');
+  pickerTargetMode = null;
+  selectedPickerJob = null;
+}
+
+function togglePickerType(btn, type) {
+  pickerTypeFilter = type;
+  document.querySelectorAll('#jobPickerModal .jobs-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.ptype === type);
+  });
+  renderJobPickerList();
+}
+
+function filterJobPicker() {
+  renderJobPickerList();
+}
+
+function renderJobPickerList() {
+  const container = document.getElementById('jobPickerList');
+  if (!container) return;
+
+  const keyword = (document.getElementById('jobPickerSearch')?.value || '').trim().toLowerCase();
+
+  let jobs = allJobs;
+  if (pickerTypeFilter !== 'all') {
+    const matchLabels = TYPE_FILTER_MAP[pickerTypeFilter];
+    if (matchLabels) {
+      jobs = jobs.filter(j => matchLabels.includes(j.label));
+    } else {
+      jobs = jobs.filter(j => j.label === pickerTypeFilter);
+    }
+  }
+  if (keyword) {
+    jobs = jobs.filter(j => {
+      const haystack = (j.title + ' ' + j.cities + ' ' + (DIR_MAP[j.direction] || j.direction)).toLowerCase();
+      return haystack.includes(keyword);
+    });
+  }
+
+  // Store filtered picker jobs for reference
+  window._pickerFilteredJobs = jobs;
+
+  if (jobs.length === 0) {
+    container.innerHTML = '<p class="empty-tip">未找到匹配的岗位</p>';
+    updatePickerLoadMoreBtn(jobs);
+    return;
+  }
+
+  // Reset to first page when filters change
+  pickerDisplayedCount = pickerPageSize;
+
+  const display = jobs.slice(0, pickerDisplayedCount);
+  container.innerHTML = display.map((job, i) => `
+    <div class="job-picker-item ${selectedPickerJob && selectedPickerJob.id === job.id ? 'selected' : ''}"
+         onclick="selectPickerJob(${i}, '${job.id}')">
+      <div class="job-picker-item-title">${job.title}</div>
+      <div class="job-picker-item-meta">
+        ${job.label ? `<span class="job-card-tag type">${job.label}</span>` : ''}
+        ${job.direction ? `<span class="job-card-tag dir">${DIR_MAP[job.direction] || job.direction}</span>` : ''}
+        <span>📍 ${job.cities || '未指定'}</span>
+      </div>
+    </div>
+  `).join('');
+
+  updatePickerLoadMoreBtn(jobs);
+}
+
+function loadMorePickerJobs() {
+  pickerDisplayedCount += pickerPageSize;
+  const jobs = window._pickerFilteredJobs || [];
+  const container = document.getElementById('jobPickerList');
+  const display = jobs.slice(0, pickerDisplayedCount);
+  container.innerHTML = display.map((job, i) => `
+    <div class="job-picker-item ${selectedPickerJob && selectedPickerJob.id === job.id ? 'selected' : ''}"
+         onclick="selectPickerJob(${i}, '${job.id}')">
+      <div class="job-picker-item-title">${job.title}</div>
+      <div class="job-picker-item-meta">
+        ${job.label ? `<span class="job-card-tag type">${job.label}</span>` : ''}
+        ${job.direction ? `<span class="job-card-tag dir">${DIR_MAP[job.direction] || job.direction}</span>` : ''}
+        <span>📍 ${job.cities || '未指定'}</span>
+      </div>
+    </div>
+  `).join('');
+  updatePickerLoadMoreBtn(jobs);
+}
+
+function updatePickerLoadMoreBtn(jobs) {
+  const wrap = document.getElementById('pickerLoadMoreWrap');
+  const countSpan = document.getElementById('pickerLoadMoreCount');
+  if (!wrap) return;
+  const remaining = jobs.length - pickerDisplayedCount;
+  if (remaining > 0) {
+    wrap.style.display = 'block';
+    countSpan.textContent = remaining;
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+function selectPickerJob(index, jobId) {
+  const allJobsDisplayed = getFilteredPickerJobs();
+  const job = allJobsDisplayed[index];
+  if (!job) return;
+  selectedPickerJob = job;
+  renderJobPickerList();
+
+  // Build JD text
+  let jdText = `【岗位名称】${job.title}\n`;
+  if (job.cities) jdText += `【工作地点】${job.cities}\n`;
+  if (job.bgs) jdText += `【事业群】${job.bgs}\n`;
+  if (job.direction) jdText += `【方向】${DIR_MAP[job.direction] || job.direction}\n`;
+  if (job.label) jdText += `【招聘类型】${job.label}\n`;
+  if (job.desc) jdText += `【岗位职责】\n${job.desc}\n`;
+  if (job.req) jdText += `【任职要求】\n${job.req}\n`;
+  if (job.bonus) jdText += `【加分项】\n${job.bonus}\n`;
+
+  if (pickerTargetMode === 'B') {
+    document.getElementById('jdInputB').value = jdText;
+    stateB.jdText = jdText;
+    document.getElementById('btnB_next').disabled = false;
+  } else if (pickerTargetMode === 'C') {
+    document.getElementById('jdInputC').value = jdText;
+    stateC.jdText = jdText;
+    document.getElementById('btnC_analyze').disabled = false;
+  }
+
+  closeJobPicker();
+  showToast(`已选择岗位：${job.title}`);
+}
+
+function getFilteredPickerJobs() {
+  const keyword = (document.getElementById('jobPickerSearch')?.value || '').trim().toLowerCase();
+  let jobs = allJobs;
+  if (pickerTypeFilter !== 'all') jobs = jobs.filter(j => j.label === pickerTypeFilter);
+  if (keyword) {
+    jobs = jobs.filter(j => {
+      const haystack = (j.title + ' ' + j.cities + ' ' + j.direction).toLowerCase();
+      return haystack.includes(keyword);
+    });
+  }
+  return jobs.slice(0, 50);
+}
 
 // ========== PASSWORD & USAGE LIMIT ==========
 (function initPwd() {
